@@ -1,0 +1,154 @@
+--código de barras:
+--22.85mm altura padrão: barras normais
+--25.40mm altura padrão: barras de guarda
+--0.33mm largura padrão
+
+--haverão, no fim da geração do código de barras, 113 bits (ou 113 barras) verticais
+--(11+3+6*7+5+6*7+3+7), onde:
+--11 bits de silêncio (0); 3 de guarda (101); 6 dígitos de 7 bits; 5 de guarda (01010); 6 dígitos de 7 bits; 3 de guarda (101); 7 bits de silêncio (0)
+
+{-
+	primeiro dígito (mais a esquerda) é o código de área (brasil é 7).
+	o último dígito (mais a direita) é o dígito verificador. ele segue a regra 
+	n1*1 + n2*3 + n3*1 + n4*3 + n5*1 + n6*3 + n7*1 + n8*3 + n9*1 + n10*3 + n11*1 + n12*3 = (soma + checkdigit) % 10 = 0
+	assim, o dígito verificador pode ser zero.
+-}
+
+--recebe a cor da string (black ou white) e o comprimento da barra
+type Bar = (String,Float)
+type Point = (Float,Float)
+
+
+{-
+ -	funções que lidam 
+ -	com objetos gráficos
+ -}
+
+--usar head, tail
+--e snd e fst!!!
+
+--escreve as cores [bar] para o arquivo
+writeBar :: [Bar] -> IO()
+writeBar fullbar =
+	writeFile "codebar.svg" (generateSVG (generateBar fullbar))
+
+--gera a tag svg para comportar o objeto gráfico
+generateSVG :: String -> String
+generateSVG object = "<svg xmlns=\"http://www.w3.org/2000/svg\">\n" ++ object ++ "</svg>"
+
+--recebe todas as 113 barras e gera as cores para impressão
+generateBar :: [Bar] -> String
+generateBar [] = []
+generateBar fullbar = innerBarGenerator fullbar 0
+
+innerBarGenerator :: [Bar] -> Float -> String
+innerBarGenerator [] iteration = []
+innerBarGenerator (top:bottom) iteration =
+	(generateRectangle top (iteration * 0.33)) ++ "\n" ++ (innerBarGenerator bottom (iteration+1))
+
+generateRectangle :: Bar -> Float -> String
+generateRectangle (color,height) x = "<rect x=\""++show(x)++"mm\" y=\"0mm\" width=\"0.33mm\" height=\""++show(height)++"mm\" style=\"stroke-width:0;fill:"++color++"\"/>"
+
+{-
+ -	funções que lidam 
+ -	com as strings de 
+ -	barras verticais
+ -}
+
+addBlanks :: Int -> [String]
+addBlanks 0 = []
+addBlanks blanks = "white" : addBlanks (blanks-1)
+
+addGuards :: String -> [String]
+addGuards [] = []
+addGuards size 
+	| size == "big" = ["white","black","white","black","white"]
+	| size == "small" = ["black","white","black"]
+	| otherwise = []
+
+generateNumbers :: [Int] -> [String]
+generateNumbers [] = []
+generateNumbers list = innerNumberGenerator list 0
+
+--recebe uma lista de 13 números e transforma-os numa lista de cores (113 itens)
+innerNumberGenerator :: [Int] -> Int -> [String]
+innerNumberGenerator [] iteration = []
+innerNumberGenerator (top:bottom) iteration 
+	| iteration >= 113 = []
+	| iteration == 0 = addBlanks 11 ++ innerNumberGenerator (top:bottom) (iteration+11)
+	| iteration == 11 || iteration == 103 = addGuards "small" ++ innerNumberGenerator (top:bottom) (iteration+3)
+	| iteration == 56 = addGuards "big" ++ innerNumberGenerator (top:bottom) (iteration+5)
+	| otherwise = addNumbers top 'A' ++ innerNumberGenerator bottom (iteration+7) {- não será sempre A! vai variar depois-}
+
+{-posteriormente deve receber a codificação ('A', 'B', ou 'C') e fazer o número correspondente-}
+addNumbers :: Int -> Char -> [String]
+addNumbers number codification 
+	| codification == 'A'
+		| number == 0 = ["white","white","white","white","white","white","white"]
+		| number == 1 = ["white","white","white","white","white","white","black"] 
+		| number == 2 = ["white","white","white","white","white","black","white"] 
+		| number == 3 = ["white","white","white","white","white","black","black"] 
+		| number == 4 = ["white","white","white","white","black","white","white"] 
+		| number == 5 = ["white","white","white","white","black","white","black"] 
+		| number == 6 = ["white","white","white","white","black","black","white"] 
+		| number == 7 = ["white","white","white","white","black","black","black"] 
+		| number == 8 = ["white","white","white","black","white","white","white"] 
+		| number == 9 = ["white","white","white","black","white","white","black"]
+	
+
+{-
+ -	funções que 
+ -	lidam com números
+-}
+
+--recebe 11 números e adiciona o código de área e o dígito verificador. modificar depois
+regularizeNumbers :: [Int] -> [Int]
+regularizeNumbers [] = []
+regularizeNumbers list
+	| length list /= 11 = list
+	| otherwise = addAreacode : list ++ [(addCheck (addAreacode : list))]
+
+addAreacode = 7
+
+addCheck :: [Int] -> Int
+addCheck [] = 0
+addCheck list = guessCheck (innerAddCheck list 0) 0
+
+innerAddCheck :: [Int] -> Int -> Int
+innerAddCheck [] iteration = 0
+innerAddCheck (top:bottom) iteration
+	| mod iteration 2 == 0 = (top * 1) + (innerAddCheck bottom (iteration+1))
+	| otherwise = (top * 3) + (innerAddCheck bottom (iteration+1))
+
+guessCheck :: Int -> Int -> Int
+guessCheck sum iteration
+	| mod (sum+iteration) 10 == 0 = iteration
+	| otherwise = guessCheck sum (iteration+1)
+
+--o dígito que codifica os outros números.
+codeNumber :: Int -> [Char]
+codeNumber number 
+	| number == 0 = ['A','A','A','A','A','A']
+	| number == 1 = ['A','A','B','A','B','B']
+	| number == 2 = ['A','A','B','B','A','B']
+	| number == 3 = ['A','A','B','B','B','A']
+	| number == 4 = ['A','B','A','A','B','B']
+	| number == 5 = ['A','B','B','A','A','B']
+	| number == 6 = ['A','B','B','B','A','A']
+	| number == 7 = ['A','B','A','B','A','B']
+	| number == 8 = ['A','B','A','B','B','A']
+	| number == 9 = ['A','B','B','A','B','A']
+
+--createBarList :: [Int] -> [Bar]
+
+
+
+
+
+
+
+
+
+
+
+

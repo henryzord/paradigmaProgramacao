@@ -1,0 +1,2 @@
+animal(gato).
+animal(cachorro).
