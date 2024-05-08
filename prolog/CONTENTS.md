@@ -13,14 +13,14 @@ Executando este script e realizando a consulta `animal(gato).`, o resultado ser√
 
 ## Operadores
 
-|  Connective |   Meaning | Prolog |
-|:------------|:----------|:------:|
-| implication |        if |     :- |
-| disjunction |        or |      ; |
-| conjunction |       and |      , |
-|    negation |       not |     \+ |
-|    equality |    equals |      = |
-|  inequality | different |    =\= |
+|  Connective |   Meaning |  Prolog |
+|:------------|:----------|:-------:|
+| implication |        if |      :- |
+| disjunction |        or |       ; |
+| conjunction |       and |       , |
+|    negation |       not |     \\+ |
+|    equality |    equals |       = |
+|  inequality | different |    =\\= |
 
 ## Coment√°rios
 
